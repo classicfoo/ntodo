@@ -16,25 +16,60 @@
       width: 100%;
     }
   }
+
+  #actionRow,
+  #actionDetails {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  #actionDetails {
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  #actionRow strong {
+    margin-right: 0.25rem;
+  }
+
+  #actionRow a.active {
+    font-weight: 600;
+  }
+
+  a.disabled {
+    pointer-events: none;
+    color: #777;
+  }
+
+  .hint {
+    color: #666;
+    font-size: 0.9rem;
+  }
 </style>
 <body>
   <h1># todolist</h1>
   <a href="settings.html">Settings</a>
   <br><br>
 
-  <!-- Quick add: title only -->
-  <label for="newTitle">Task</label>
-  <input id="newTitle" type="text" placeholder="e.g., Book flights">
-  <a href="#" id="addRoot">Add</a>
-  |
-  <a href="#" id="toggleSelect">Select</a>
-  <br><br>
+  <div id="actionRow">
+    <strong>Actions:</strong>
+    <a href="#" id="toggleSelect">Select</a>
+    |
+    <a href="#" id="actionTask">Task</a>
+    |
+    <a href="#" id="actionSubtask">Subtask</a>
+  </div>
+  <div id="actionDetails">
+    <span id="primaryActionContainer"></span>
+    <span id="secondaryActions" hidden>
+      | <a href="#" id="bulkDelete">Delete</a>
+    </span>
+  </div>
+
 
   <h2>Tasks</h2>
-
-  <div id="bulkControls" hidden>
-    <a href="#" id="bulkDelete">Delete</a>
-  </div>
 
   <div id="list"></div>
 
@@ -43,6 +78,7 @@
     let tasks = load();
     const selectedIds = new Set();
     let selectMode = false;
+    let currentAction = "task";
 
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
@@ -83,14 +119,6 @@
       return null;
     }
 
-    function removeFrom(list, id) {
-      return list.filter(n => {
-        if (n.id === id) return false;
-        n.children = removeFrom(n.children, id);
-        return true;
-      });
-    }
-
     function addChild(parentId, node) {
       const p = findById(tasks, parentId);
       if (p) p.children.push(node);
@@ -111,10 +139,6 @@
       }
     }
 
-    function updateBulkControls() {
-      document.getElementById("bulkControls").hidden = !selectMode;
-    }
-
     function render() {
       pruneSelection();
       if (!selectMode && selectedIds.size) {
@@ -123,7 +147,7 @@
       const host = document.getElementById("list");
       host.innerHTML = "";
       host.appendChild(renderList(tasks));
-      updateBulkControls();
+      renderActionDetails();
     }
 
     function renderList(nodes) {
@@ -141,7 +165,7 @@
             } else {
               selectedIds.delete(n.id);
             }
-            updateBulkControls();
+            renderActionDetails();
           });
           li.appendChild(checkbox);
           li.appendChild(document.createTextNode(" "));
@@ -152,34 +176,6 @@
         a.href = `edit.html#${n.id}`;
         a.textContent = titleWithDue(n);
         li.appendChild(a);
-
-        // Actions as links, separated by pipes
-        li.appendChild(document.createTextNode(" | "));
-        const addLink = document.createElement("a");
-        addLink.href = "#";
-        addLink.textContent = "Add subtask";
-        addLink.addEventListener("click", (e) => {
-          e.preventDefault();
-          const t = prompt("Subtask title:");
-          if (t && t.trim()) {
-            addChild(n.id, createNode(t.trim()));
-            save(); render();
-          }
-        });
-        li.appendChild(addLink);
-
-        li.appendChild(document.createTextNode(" | "));
-        const delLink = document.createElement("a");
-        delLink.href = "#";
-        delLink.textContent = "Delete";
-        delLink.addEventListener("click", (e) => {
-          e.preventDefault();
-          if (confirm("Delete this task and all subtasks?")) {
-            tasks = removeFrom(tasks, n.id);
-            save(); render();
-          }
-        });
-        li.appendChild(delLink);
 
         // Spacing between items
         li.appendChild(document.createElement("br"));
@@ -199,25 +195,25 @@
       return n.due ? `${n.title || "(untitled)"} (due ${n.due})` : `${n.title || "(untitled)"}`;
     }
 
-    document.getElementById("addRoot").addEventListener("click", (e) => {
-      e.preventDefault();
-      const input = document.getElementById("newTitle");
-      const t = input.value.trim();
-      if (!t) { alert("Enter a task title."); return; }
-      tasks.push(createNode(t));
-      save(); render();
-      input.value = "";
-    });
-
     document.getElementById("toggleSelect").addEventListener("click", (e) => {
       e.preventDefault();
       selectMode = !selectMode;
-      const link = document.getElementById("toggleSelect");
-      link.textContent = selectMode ? "Done" : "Select";
       if (!selectMode) {
         selectedIds.clear();
       }
       render();
+    });
+
+    document.getElementById("actionTask").addEventListener("click", (e) => {
+      e.preventDefault();
+      currentAction = "task";
+      renderActionDetails();
+    });
+
+    document.getElementById("actionSubtask").addEventListener("click", (e) => {
+      e.preventDefault();
+      currentAction = "subtask";
+      renderActionDetails();
     });
 
     document.getElementById("bulkDelete").addEventListener("click", (e) => {
@@ -228,7 +224,6 @@
       save();
       selectedIds.clear();
       selectMode = false;
-      document.getElementById("toggleSelect").textContent = "Select";
       render();
     });
 
@@ -238,6 +233,121 @@
         n.children = removeMany(n.children, ids);
         return true;
       });
+    }
+
+    function renderActionDetails() {
+      const toggleLink = document.getElementById("toggleSelect");
+      toggleLink.classList.toggle("active", selectMode);
+
+      const taskLink = document.getElementById("actionTask");
+      const subtaskLink = document.getElementById("actionSubtask");
+      taskLink.classList.toggle("active", currentAction === "task");
+      subtaskLink.classList.toggle("active", currentAction === "subtask");
+
+      renderPrimaryAction();
+
+      const secondary = document.getElementById("secondaryActions");
+      secondary.hidden = selectedIds.size === 0;
+    }
+
+    function renderPrimaryAction() {
+      const container = document.getElementById("primaryActionContainer");
+      const previousTaskInput = document.getElementById("newTitle");
+      const previousSubtaskInput = document.getElementById("newSubtaskTitle");
+      const previousTaskValue = previousTaskInput?.value || "";
+      const previousSubtaskValue = previousSubtaskInput?.value || "";
+      const taskWasPresent = Boolean(previousTaskInput);
+      const subtaskWasEnabled = previousSubtaskInput ? !previousSubtaskInput.disabled : false;
+      container.innerHTML = "";
+
+      if (currentAction === "task") {
+        const label = document.createElement("label");
+        label.htmlFor = "newTitle";
+        label.textContent = "Task";
+
+        const input = document.createElement("input");
+        input.id = "newTitle";
+        input.type = "text";
+        input.placeholder = "e.g., Book flights";
+        input.value = previousTaskValue;
+
+        const addLink = document.createElement("a");
+        addLink.href = "#";
+        addLink.id = "addRoot";
+        addLink.textContent = "Add";
+        addLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          const t = input.value.trim();
+          if (!t) { alert("Enter a task title."); return; }
+          tasks.push(createNode(t));
+          save(); render();
+          input.value = "";
+        });
+
+        container.append(label, document.createTextNode(" "), input, document.createTextNode(" "), addLink);
+        if (!taskWasPresent) {
+          setTimeout(() => input.focus(), 0);
+        }
+      } else if (currentAction === "subtask") {
+        const label = document.createElement("label");
+        label.htmlFor = "newSubtaskTitle";
+        label.textContent = "Subtask";
+
+        const input = document.createElement("input");
+        input.id = "newSubtaskTitle";
+        input.type = "text";
+        input.placeholder = "e.g., Call the vendor";
+        input.value = previousSubtaskValue;
+
+        const addLink = document.createElement("a");
+        addLink.href = "#";
+        addLink.id = "addSubtask";
+        addLink.textContent = "Add";
+        addLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (addLink.classList.contains("disabled")) return;
+          const t = input.value.trim();
+          if (!t) { alert("Enter a subtask title."); return; }
+          const [targetId] = Array.from(selectedIds);
+          if (!targetId) { alert("Select a task first."); return; }
+          addChild(targetId, createNode(t));
+          save(); render();
+        });
+
+        const hint = document.createElement("span");
+        hint.id = "subtaskHint";
+        hint.className = "hint";
+
+        container.append(label, document.createTextNode(" "), input, document.createTextNode(" "), addLink, document.createTextNode(" "), hint);
+        updateSubtaskControlsState(input, addLink, hint, subtaskWasEnabled);
+      }
+    }
+
+    function updateSubtaskControlsState(input, addLink, hint, wasEnabledBefore) {
+      if (!selectMode) {
+        input.disabled = true;
+        addLink.classList.add("disabled");
+        addLink.setAttribute("aria-disabled", "true");
+        hint.textContent = "Toggle Select to choose a task first.";
+      } else if (selectedIds.size === 0) {
+        input.disabled = true;
+        addLink.classList.add("disabled");
+        addLink.setAttribute("aria-disabled", "true");
+        hint.textContent = "Select a task to add a subtask.";
+      } else if (selectedIds.size > 1) {
+        input.disabled = true;
+        addLink.classList.add("disabled");
+        addLink.setAttribute("aria-disabled", "true");
+        hint.textContent = "Select only one task for this action.";
+      } else {
+        input.disabled = false;
+        addLink.classList.remove("disabled");
+        addLink.removeAttribute("aria-disabled");
+        hint.textContent = "";
+        if (!wasEnabledBefore) {
+          setTimeout(() => input.focus(), 0);
+        }
+      }
     }
 
     render();
