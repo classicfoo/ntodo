@@ -31,6 +31,11 @@
   </form>
 
   <br>
+  <h2>Parent tasks</h2>
+  <div id="parentList">None.</div>
+
+  <br>
+
   <h2>Subtasks</h2>
   <div id="childList">No subtasks.</div>
 
@@ -72,6 +77,52 @@
       wrap.appendChild(document.createElement("br"));
     }
 
+    function findPath(list, id, trail = []) {
+      for (const n of list) {
+        const nextTrail = trail.concat(n);
+        if (n.id === id) return nextTrail;
+        const hit = findPath(n.children, id, nextTrail);
+        if (hit.length) return hit;
+      }
+      return [];
+    }
+
+    function buildHierarchy(list, path, depth) {
+      const ul = document.createElement("ul");
+      for (const n of list) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = `edit.html#${n.id}`;
+        a.textContent = n.due ? `${n.title || "(untitled)"} (due ${n.due})` : `${n.title || "(untitled)"}`;
+        if (path[depth] && path[depth].id === n.id) {
+          a.style.fontWeight = "bold";
+          if (depth + 1 < path.length) {
+            li.appendChild(a);
+            li.appendChild(buildHierarchy(n.children, path, depth + 1));
+            ul.appendChild(li);
+            continue;
+          }
+        }
+        li.appendChild(a);
+        ul.appendChild(li);
+      }
+      return ul;
+    }
+
+    function renderParentList(id) {
+      const wrap = document.getElementById("parentList");
+      wrap.innerHTML = "";
+      const path = findPath(tasks, id);
+      if (!path.length) { wrap.textContent = "None."; return; }
+      if (path.length === 1) {
+        const note = document.createElement("div");
+        note.textContent = "This task has no parent tasks.";
+        wrap.appendChild(note);
+      }
+      wrap.appendChild(buildHierarchy(tasks, path, 0));
+      wrap.appendChild(document.createElement("br"));
+    }
+
     function getIdFromHash() { return location.hash.slice(1); }
 
     function loadIntoForm(id) {
@@ -82,6 +133,7 @@
       document.getElementById("due").value = n.due || "";
       document.getElementById("notes").value = n.notes || "";
       renderChildList(n);
+      renderParentList(n.id);
     }
 
     // Save as link
@@ -94,6 +146,7 @@
       n.due = document.getElementById("due").value || "";
       n.notes = document.getElementById("notes").value;
       save();
+      renderParentList(n.id);
       // stay on page
     });
 
@@ -108,6 +161,7 @@
         parent.children.push(createNode(t.trim()));
         save();
         renderChildList(parent);
+        renderParentList(parent.id);
       }
     });
 
