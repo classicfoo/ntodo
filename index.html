@@ -14,12 +14,24 @@
 
   <details open>
     <summary>Tasks</summary>
+
+    <div id="bulkControls">
+      <strong>Bulk actions:</strong>
+      <select id="bulkAction">
+        <option value="">Select an action</option>
+        <option value="delete">Delete selected</option>
+      </select>
+      <button id="bulkApply" disabled>Apply</button>
+      <span id="selectionStatus">No tasks selected.</span>
+    </div>
+
     <div id="list"></div>
   </details>
 
   <script>
     const LS_KEY = "todolist_v3";
     let tasks = load();
+    const selectedIds = new Set();
 
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
@@ -50,16 +62,64 @@
       if (p) p.children.push(node);
     }
 
+    function collectIds(list, acc = new Set()) {
+      for (const node of list) {
+        acc.add(node.id);
+        collectIds(node.children, acc);
+      }
+      return acc;
+    }
+
+    function pruneSelection() {
+      const validIds = collectIds(tasks, new Set());
+      for (const id of Array.from(selectedIds)) {
+        if (!validIds.has(id)) selectedIds.delete(id);
+      }
+    }
+
+    function updateBulkControls() {
+      const select = document.getElementById("bulkAction");
+      const applyBtn = document.getElementById("bulkApply");
+      const status = document.getElementById("selectionStatus");
+
+      const count = selectedIds.size;
+      if (count === 0) {
+        status.textContent = "No tasks selected.";
+      } else if (count === 1) {
+        status.textContent = "1 task selected.";
+      } else {
+        status.textContent = `${count} tasks selected.`;
+      }
+
+      applyBtn.disabled = count === 0 || !select.value;
+    }
+
     function render() {
+      pruneSelection();
       const host = document.getElementById("list");
       host.innerHTML = "";
       host.appendChild(renderList(tasks));
+      updateBulkControls();
     }
 
     function renderList(nodes) {
       const ul = document.createElement("ul");
       for (const n of nodes) {
         const li = document.createElement("li");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedIds.has(n.id);
+        checkbox.addEventListener("change", (e) => {
+          if (e.target.checked) {
+            selectedIds.add(n.id);
+          } else {
+            selectedIds.delete(n.id);
+          }
+          updateBulkControls();
+        });
+        li.appendChild(checkbox);
+        li.appendChild(document.createTextNode(" "));
 
         // Title links to edit page
         const a = document.createElement("a");
@@ -122,6 +182,35 @@
       save(); render();
       input.value = "";
     });
+
+    document.getElementById("bulkAction").addEventListener("change", () => {
+      updateBulkControls();
+    });
+
+    document.getElementById("bulkApply").addEventListener("click", (e) => {
+      e.preventDefault();
+      const select = document.getElementById("bulkAction");
+      const action = select.value;
+      if (!action || selectedIds.size === 0) return;
+
+      if (action === "delete") {
+        if (!confirm(`Delete ${selectedIds.size} selected item(s)?`)) return;
+        tasks = removeMany(tasks, selectedIds);
+        save();
+        selectedIds.clear();
+        select.value = "";
+        render();
+        return;
+      }
+    });
+
+    function removeMany(list, ids) {
+      return list.filter(n => {
+        if (ids.has(n.id)) return false;
+        n.children = removeMany(n.children, ids);
+        return true;
+      });
+    }
 
     render();
   </script>
