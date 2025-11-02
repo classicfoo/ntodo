@@ -87,25 +87,23 @@
       return [];
     }
 
-    function buildHierarchy(list, path, depth) {
+    function buildAncestorList(path) {
+      if (!path.length) return null;
       const ul = document.createElement("ul");
-      for (const n of list) {
+      let current = ul;
+      path.forEach((n, idx) => {
         const li = document.createElement("li");
         const a = document.createElement("a");
         a.href = `edit.html#${n.id}`;
         a.textContent = n.due ? `${n.title || "(untitled)"} (due ${n.due})` : `${n.title || "(untitled)"}`;
-        if (path[depth] && path[depth].id === n.id) {
-          a.style.fontWeight = "bold";
-          if (depth + 1 < path.length) {
-            li.appendChild(a);
-            li.appendChild(buildHierarchy(n.children, path, depth + 1));
-            ul.appendChild(li);
-            continue;
-          }
-        }
         li.appendChild(a);
-        ul.appendChild(li);
-      }
+        current.appendChild(li);
+        if (idx < path.length - 1) {
+          const next = document.createElement("ul");
+          li.appendChild(next);
+          current = next;
+        }
+      });
       return ul;
     }
 
@@ -118,8 +116,11 @@
         const note = document.createElement("div");
         note.textContent = "This task has no parent tasks.";
         wrap.appendChild(note);
+        wrap.appendChild(document.createElement("br"));
+        return;
       }
-      wrap.appendChild(buildHierarchy(tasks, path, 0));
+      const ancestors = buildAncestorList(path.slice(0, -1));
+      if (ancestors) wrap.appendChild(ancestors);
       wrap.appendChild(document.createElement("br"));
     }
 
