@@ -24,8 +24,15 @@
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
 
-    function createNode(title, due = "", notes = "") {
-      return { id: crypto.randomUUID(), title, due, notes, children: [] };
+    function todayISODate() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      return now.toISOString().split("T")[0];
+    }
+
+    function createNode(title, due, notes = "") {
+      const normalizedDue = due === undefined ? todayISODate() : due;
+      return { id: crypto.randomUUID(), title, due: normalizedDue || "", notes, children: [] };
     }
 
     function findById(list, id) {
