@@ -5,6 +5,10 @@
 <title>Edit task</title>
 <body>
   <h1>Edit task</h1>
+  |
+  <a href="settings.html">Settings</a>
+  <br><br>
+
   <form id="taskForm">
     <input type="hidden" id="taskId">
 
@@ -33,10 +37,23 @@
 
   <script>
     const LS_KEY = "todolist_v3";
+    const SETTINGS_KEY = "todolist_settings";
+    const DEFAULT_SETTINGS = { defaultDue: "today" };
     let tasks = load();
 
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return { ...DEFAULT_SETTINGS };
+        const parsed = JSON.parse(raw);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
 
     function todayISODate() {
       const now = new Date();
@@ -44,8 +61,14 @@
       return now.toISOString().split("T")[0];
     }
 
+    function defaultDueValue() {
+      const settings = loadSettings();
+      return settings.defaultDue === "today" ? todayISODate() : "";
+    }
+
     function createNode(title, due, notes = "") {
-      const normalizedDue = due === undefined ? todayISODate() : due;
+      const normalizedDue = due === undefined ? defaultDueValue() : due;
+
       return { id: crypto.randomUUID(), title, due: normalizedDue || "", notes, children: [] };
     }
 
