@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edit task</title>
+<body>
+  <h1>Edit task</h1>
+  <a href="index.html">← Back to list</a>
+  <br><br>
+
+  <form id="taskForm">
+    <input type="hidden" id="taskId">
+
+    <label for="title">Title</label><br>
+    <input id="title" type="text" required><br><br>
+
+    <label for="due">Due</label><br>
+    <input id="due" type="date"><br><br>
+
+    <label for="notes">Notes</label><br>
+    <textarea id="notes" rows="4" placeholder="Details"></textarea><br><br>
+
+    <!-- Actions as links with pipes -->
+    <a href="#" id="saveLink">Save</a>
+    |
+    <a href="#" id="addSubLink">Add subtask</a>
+    |
+    <a href="#" id="deleteLink" title="Delete this task and all subtasks">Delete</a>
+    |
+    <a href="index.html" id="closeLink">Close</a>
+  </form>
+
+  <br>
+  <h2>Subtasks</h2>
+  <div id="childList">No subtasks.</div>
+
+  <script>
+    const LS_KEY = "todolist_v3";
+    let tasks = load();
+
+    function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
+    function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
+
+    function createNode(title, due = "", notes = "") {
+      return { id: crypto.randomUUID(), title, due, notes, children: [] };
+    }
+
+    function findById(list, id) {
+      for (const n of list) {
+        if (n.id === id) return n;
+        const hit = findById(n.children, id);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function renderChildList(n) {
+      const wrap = document.getElementById("childList");
+      wrap.innerHTML = "";
+      if (!n.children.length) { wrap.textContent = "No subtasks."; return; }
+      const ul = document.createElement("ul");
+      for (const c of n.children) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = `edit.html#${c.id}`;
+        a.textContent = c.due ? `${c.title || "(untitled)"} (due ${c.due})` : `${c.title || "(untitled)"}`;
+        li.appendChild(a);
+        li.appendChild(document.createElement("br"));
+        ul.appendChild(li);
+      }
+      wrap.appendChild(ul);
+      wrap.appendChild(document.createElement("br"));
+    }
+
+    function getIdFromHash() { return location.hash.slice(1); }
+
+    function loadIntoForm(id) {
+      const n = findById(tasks, id);
+      if (!n) { alert("Task not found."); location.href = "index.html"; return; }
+      document.getElementById("taskId").value = n.id;
+      document.getElementById("title").value = n.title || "";
+      document.getElementById("due").value = n.due || "";
+      document.getElementById("notes").value = n.notes || "";
+      renderChildList(n);
+    }
+
+    // Save as link
+    document.getElementById("saveLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = document.getElementById("taskId").value;
+      const n = findById(tasks, id);
+      if (!n) return;
+      n.title = document.getElementById("title").value.trim() || "(untitled)";
+      n.due = document.getElementById("due").value || "";
+      n.notes = document.getElementById("notes").value;
+      save();
+      // stay on page
+    });
+
+    // Add subtask via prompt
+    document.getElementById("addSubLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = document.getElementById("taskId").value;
+      const parent = findById(tasks, id);
+      if (!parent) return;
+      const t = prompt("Subtask title:");
+      if (t && t.trim()) {
+        parent.children.push(createNode(t.trim()));
+        save();
+        renderChildList(parent);
+      }
+    });
+
+    // Delete link
+    document.getElementById("deleteLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = document.getElementById("taskId").value;
+      if (!id) return;
+      if (!confirm("Delete this task and all subtasks?")) return;
+      tasks = (function removeFrom(list, id) {
+        return list.filter(n => {
+          if (n.id === id) return false;
+          n.children = removeFrom(n.children, id);
+          return true;
+        });
+      })(tasks, id);
+      save();
+      location.href = "index.html";
+    });
+
+    window.addEventListener("hashchange", () => {
+      const id = getIdFromHash();
+      if (id) loadIntoForm(id);
+    });
+
+    // Init
+    if (!location.hash) { alert("No task id provided."); location.href = "index.html"; }
+    else loadIntoForm(getIdFromHash());
+  </script>
+</body>
+</html>

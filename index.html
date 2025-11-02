@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>todolist</title>
+<body>
+  <h1># todolist</h1>
+
+  <!-- Quick add: title only -->
+  <label for="newTitle">Task</label>
+  <input id="newTitle" type="text" placeholder="e.g., Book flights">
+  <a href="#" id="addRoot">Add</a>
+  <br><br>
+
+  <details open>
+    <summary>Tasks</summary>
+    <div id="list"></div>
+  </details>
+
+  <script>
+    const LS_KEY = "todolist_v3";
+    let tasks = load();
+
+    function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
+    function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
+
+    function createNode(title, due = "", notes = "") {
+      return { id: crypto.randomUUID(), title, due, notes, children: [] };
+    }
+
+    function findById(list, id) {
+      for (const n of list) {
+        if (n.id === id) return n;
+        const hit = findById(n.children, id);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function removeFrom(list, id) {
+      return list.filter(n => {
+        if (n.id === id) return false;
+        n.children = removeFrom(n.children, id);
+        return true;
+      });
+    }
+
+    function addChild(parentId, node) {
+      const p = findById(tasks, parentId);
+      if (p) p.children.push(node);
+    }
+
+    function render() {
+      const host = document.getElementById("list");
+      host.innerHTML = "";
+      host.appendChild(renderList(tasks));
+    }
+
+    function renderList(nodes) {
+      const ul = document.createElement("ul");
+      for (const n of nodes) {
+        const li = document.createElement("li");
+
+        // Title links to edit page
+        const a = document.createElement("a");
+        a.href = `edit.html#${n.id}`;
+        a.textContent = titleWithDue(n);
+        li.appendChild(a);
+
+        // Actions as links, separated by pipes
+        li.appendChild(document.createTextNode(" | "));
+        const addLink = document.createElement("a");
+        addLink.href = "#";
+        addLink.textContent = "Add subtask";
+        addLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          const t = prompt("Subtask title:");
+          if (t && t.trim()) {
+            addChild(n.id, createNode(t.trim()));
+            save(); render();
+          }
+        });
+        li.appendChild(addLink);
+
+        li.appendChild(document.createTextNode(" | "));
+        const delLink = document.createElement("a");
+        delLink.href = "#";
+        delLink.textContent = "Delete";
+        delLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (confirm("Delete this task and all subtasks?")) {
+            tasks = removeFrom(tasks, n.id);
+            save(); render();
+          }
+        });
+        li.appendChild(delLink);
+
+        // Spacing between items
+        li.appendChild(document.createElement("br"));
+
+        if (n.children && n.children.length) {
+          li.appendChild(renderList(n.children));
+        }
+
+        // Extra spacing after each task block
+        li.appendChild(document.createElement("br"));
+        ul.appendChild(li);
+      }
+      return ul;
+    }
+
+    function titleWithDue(n) {
+      return n.due ? `${n.title || "(untitled)"} (due ${n.due})` : `${n.title || "(untitled)"}`;
+    }
+
+    document.getElementById("addRoot").addEventListener("click", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("newTitle");
+      const t = input.value.trim();
+      if (!t) { alert("Enter a task title."); return; }
+      tasks.push(createNode(t));
+      save(); render();
+      input.value = "";
+    });
+
+    render();
+  </script>
+</body>
+</html>
