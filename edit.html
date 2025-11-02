@@ -30,15 +30,6 @@
     <a href="index.html" id="closeLink">Close</a>
   </form>
 
-  <br>
-  <h2>Parent tasks</h2>
-  <div id="parentList">None.</div>
-
-  <br>
-
-  <h2>Subtasks</h2>
-  <div id="childList">No subtasks.</div>
-
   <script>
     const LS_KEY = "todolist_v3";
     let tasks = load();
@@ -59,71 +50,6 @@
       return null;
     }
 
-    function renderChildList(n) {
-      const wrap = document.getElementById("childList");
-      wrap.innerHTML = "";
-      if (!n.children.length) { wrap.textContent = "No subtasks."; return; }
-      const ul = document.createElement("ul");
-      for (const c of n.children) {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.href = `edit.html#${c.id}`;
-        a.textContent = c.due ? `${c.title || "(untitled)"} (due ${c.due})` : `${c.title || "(untitled)"}`;
-        li.appendChild(a);
-        li.appendChild(document.createElement("br"));
-        ul.appendChild(li);
-      }
-      wrap.appendChild(ul);
-      wrap.appendChild(document.createElement("br"));
-    }
-
-    function findPath(list, id, trail = []) {
-      for (const n of list) {
-        const nextTrail = trail.concat(n);
-        if (n.id === id) return nextTrail;
-        const hit = findPath(n.children, id, nextTrail);
-        if (hit.length) return hit;
-      }
-      return [];
-    }
-
-    function buildAncestorList(path) {
-      if (!path.length) return null;
-      const ul = document.createElement("ul");
-      let current = ul;
-      path.forEach((n, idx) => {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.href = `edit.html#${n.id}`;
-        a.textContent = n.due ? `${n.title || "(untitled)"} (due ${n.due})` : `${n.title || "(untitled)"}`;
-        li.appendChild(a);
-        current.appendChild(li);
-        if (idx < path.length - 1) {
-          const next = document.createElement("ul");
-          li.appendChild(next);
-          current = next;
-        }
-      });
-      return ul;
-    }
-
-    function renderParentList(id) {
-      const wrap = document.getElementById("parentList");
-      wrap.innerHTML = "";
-      const path = findPath(tasks, id);
-      if (!path.length) { wrap.textContent = "None."; return; }
-      if (path.length === 1) {
-        const note = document.createElement("div");
-        note.textContent = "This task has no parent tasks.";
-        wrap.appendChild(note);
-        wrap.appendChild(document.createElement("br"));
-        return;
-      }
-      const ancestors = buildAncestorList(path.slice(0, -1));
-      if (ancestors) wrap.appendChild(ancestors);
-      wrap.appendChild(document.createElement("br"));
-    }
-
     function getIdFromHash() { return location.hash.slice(1); }
 
     function loadIntoForm(id) {
@@ -133,8 +59,6 @@
       document.getElementById("title").value = n.title || "";
       document.getElementById("due").value = n.due || "";
       document.getElementById("notes").value = n.notes || "";
-      renderChildList(n);
-      renderParentList(n.id);
     }
 
     // Save as link
@@ -147,7 +71,6 @@
       n.due = document.getElementById("due").value || "";
       n.notes = document.getElementById("notes").value;
       save();
-      renderParentList(n.id);
       // stay on page
     });
 
@@ -161,8 +84,6 @@
       if (t && t.trim()) {
         parent.children.push(createNode(t.trim()));
         save();
-        renderChildList(parent);
-        renderParentList(parent.id);
       }
     });
 
