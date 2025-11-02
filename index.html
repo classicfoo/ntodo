@@ -12,18 +12,25 @@
   <label for="newTitle">Task</label>
   <input id="newTitle" type="text" placeholder="e.g., Book flights">
   <a href="#" id="addRoot">Add</a>
+  |
+  <a href="#" id="toggleSelect">Select</a>
   <br><br>
 
   <details open>
     <summary>Tasks</summary>
+
+    <div id="bulkControls" hidden>
+      <a href="#" id="bulkDelete">Delete</a>
+    </div>
+
     <div id="list"></div>
   </details>
 
   <script>
     const LS_KEY = "todolist_v3";
-    const SETTINGS_KEY = "todolist_settings";
-    const DEFAULT_SETTINGS = { defaultDue: "today" };
     let tasks = load();
+    const selectedIds = new Set();
+    let selectMode = false;
 
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
@@ -77,16 +84,56 @@
       if (p) p.children.push(node);
     }
 
+    function collectIds(list, acc = new Set()) {
+      for (const node of list) {
+        acc.add(node.id);
+        collectIds(node.children, acc);
+      }
+      return acc;
+    }
+
+    function pruneSelection() {
+      const validIds = collectIds(tasks, new Set());
+      for (const id of Array.from(selectedIds)) {
+        if (!validIds.has(id)) selectedIds.delete(id);
+      }
+    }
+
+    function updateBulkControls() {
+      document.getElementById("bulkControls").hidden = !selectMode;
+    }
+
     function render() {
+      pruneSelection();
+      if (!selectMode && selectedIds.size) {
+        selectedIds.clear();
+      }
       const host = document.getElementById("list");
       host.innerHTML = "";
       host.appendChild(renderList(tasks));
+      updateBulkControls();
     }
 
     function renderList(nodes) {
       const ul = document.createElement("ul");
       for (const n of nodes) {
         const li = document.createElement("li");
+
+        if (selectMode) {
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = selectedIds.has(n.id);
+          checkbox.addEventListener("change", (e) => {
+            if (e.target.checked) {
+              selectedIds.add(n.id);
+            } else {
+              selectedIds.delete(n.id);
+            }
+            updateBulkControls();
+          });
+          li.appendChild(checkbox);
+          li.appendChild(document.createTextNode(" "));
+        }
 
         // Title links to edit page
         const a = document.createElement("a");
@@ -149,6 +196,37 @@
       save(); render();
       input.value = "";
     });
+
+    document.getElementById("toggleSelect").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectMode = !selectMode;
+      const link = document.getElementById("toggleSelect");
+      link.textContent = selectMode ? "Done" : "Select";
+      if (!selectMode) {
+        selectedIds.clear();
+      }
+      render();
+    });
+
+    document.getElementById("bulkDelete").addEventListener("click", (e) => {
+      e.preventDefault();
+      if (selectedIds.size === 0) return;
+      if (!confirm("Delete selected tasks?")) return;
+      tasks = removeMany(tasks, selectedIds);
+      save();
+      selectedIds.clear();
+      selectMode = false;
+      document.getElementById("toggleSelect").textContent = "Select";
+      render();
+    });
+
+    function removeMany(list, ids) {
+      return list.filter(n => {
+        if (ids.has(n.id)) return false;
+        n.children = removeMany(n.children, ids);
+        return true;
+      });
+    }
 
     render();
   </script>
