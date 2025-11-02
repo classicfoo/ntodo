@@ -31,10 +31,6 @@
     <a href="index.html" id="closeLink">Close</a>
   </form>
 
-  <br>
-  <h2>Subtasks</h2>
-  <div id="childList">No subtasks.</div>
-
   <script>
     const LS_KEY = "todolist_v3";
     const SETTINGS_KEY = "todolist_settings";
@@ -81,24 +77,6 @@
       return null;
     }
 
-    function renderChildList(n) {
-      const wrap = document.getElementById("childList");
-      wrap.innerHTML = "";
-      if (!n.children.length) { wrap.textContent = "No subtasks."; return; }
-      const ul = document.createElement("ul");
-      for (const c of n.children) {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.href = `edit.html#${c.id}`;
-        a.textContent = c.due ? `${c.title || "(untitled)"} (due ${c.due})` : `${c.title || "(untitled)"}`;
-        li.appendChild(a);
-        li.appendChild(document.createElement("br"));
-        ul.appendChild(li);
-      }
-      wrap.appendChild(ul);
-      wrap.appendChild(document.createElement("br"));
-    }
-
     function getIdFromHash() { return location.hash.slice(1); }
 
     function loadIntoForm(id) {
@@ -108,7 +86,6 @@
       document.getElementById("title").value = n.title || "";
       document.getElementById("due").value = n.due || "";
       document.getElementById("notes").value = n.notes || "";
-      renderChildList(n);
     }
 
     // Save as link
@@ -134,7 +111,6 @@
       if (t && t.trim()) {
         parent.children.push(createNode(t.trim()));
         save();
-        renderChildList(parent);
       }
     });
 
