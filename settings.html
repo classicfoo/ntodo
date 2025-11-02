@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings</title>
+<body>
+  <h1>Settings</h1>
+  <a href="index.html">← Back to list</a>
+  <br><br>
+
+  <form>
+    <fieldset>
+      <legend>Default due date for new tasks</legend>
+      <label>
+        <input type="radio" name="defaultDue" value="today">
+        Use today's date
+      </label>
+      <br>
+      <label>
+        <input type="radio" name="defaultDue" value="none">
+        Leave blank
+      </label>
+    </fieldset>
+  </form>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    const SETTINGS_KEY = "todolist_settings";
+    const DEFAULT_SETTINGS = { defaultDue: "today" };
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return { ...DEFAULT_SETTINGS };
+        const parsed = JSON.parse(raw);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
+
+    function saveSettings(settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function showStatus(message) {
+      const el = document.getElementById("status");
+      el.textContent = message;
+      if (message) {
+        setTimeout(() => { el.textContent = ""; }, 2000);
+      }
+    }
+
+    function initForm() {
+      const form = document.querySelector("form");
+      const settings = loadSettings();
+      const selected = form.elements.defaultDue;
+      for (const input of selected) {
+        input.checked = input.value === settings.defaultDue;
+        input.addEventListener("change", () => {
+          const updated = loadSettings();
+          updated.defaultDue = input.value;
+          saveSettings(updated);
+          showStatus("Saved.");
+        });
+      }
+    }
+
+    initForm();
+  </script>
+</body>
+</html>

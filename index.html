@@ -5,6 +5,8 @@
 <title>todolist</title>
 <body>
   <h1># todolist</h1>
+  <a href="settings.html">Settings</a>
+  <br><br>
 
   <!-- Quick add: title only -->
   <label for="newTitle">Task</label>
@@ -19,13 +21,38 @@
 
   <script>
     const LS_KEY = "todolist_v3";
+    const SETTINGS_KEY = "todolist_settings";
+    const DEFAULT_SETTINGS = { defaultDue: "today" };
     let tasks = load();
 
     function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
     function save() { localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }
 
-    function createNode(title, due = "", notes = "") {
-      return { id: crypto.randomUUID(), title, due, notes, children: [] };
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return { ...DEFAULT_SETTINGS };
+        const parsed = JSON.parse(raw);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
+
+    function todayISODate() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      return now.toISOString().split("T")[0];
+    }
+
+    function defaultDueValue() {
+      const settings = loadSettings();
+      return settings.defaultDue === "today" ? todayISODate() : "";
+    }
+
+    function createNode(title, due, notes = "") {
+      const normalizedDue = due === undefined ? defaultDueValue() : due;
+      return { id: crypto.randomUUID(), title, due: normalizedDue || "", notes, children: [] };
     }
 
     function findById(list, id) {
