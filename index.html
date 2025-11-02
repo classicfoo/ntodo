@@ -18,8 +18,7 @@
     <summary>Tasks</summary>
 
     <div id="bulkControls" hidden>
-      <button id="bulkDelete" disabled>Delete selected</button>
-      <span id="selectionStatus">Select tasks to enable bulk actions.</span>
+      <a href="#" id="bulkDelete">Delete</a>
     </div>
 
     <div id="list"></div>
@@ -76,27 +75,7 @@
     }
 
     function updateBulkControls() {
-      const bulkControls = document.getElementById("bulkControls");
-      const deleteBtn = document.getElementById("bulkDelete");
-      const status = document.getElementById("selectionStatus");
-
-      bulkControls.hidden = !selectMode;
-      if (!selectMode) {
-        status.textContent = "Select tasks to enable bulk actions.";
-        deleteBtn.disabled = true;
-        return;
-      }
-
-      const count = selectedIds.size;
-      if (count === 0) {
-        status.textContent = "No tasks selected.";
-      } else if (count === 1) {
-        status.textContent = "1 task selected.";
-      } else {
-        status.textContent = `${count} tasks selected.`;
-      }
-
-      deleteBtn.disabled = count === 0;
+      document.getElementById("bulkControls").hidden = !selectMode;
     }
 
     function render() {
@@ -207,7 +186,7 @@
     document.getElementById("bulkDelete").addEventListener("click", (e) => {
       e.preventDefault();
       if (selectedIds.size === 0) return;
-      if (!confirm(`Delete ${selectedIds.size} selected item(s)?`)) return;
+      if (!confirm("Delete selected tasks?")) return;
       tasks = removeMany(tasks, selectedIds);
       save();
       selectedIds.clear();
